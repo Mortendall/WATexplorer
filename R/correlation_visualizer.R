@@ -43,7 +43,8 @@ correlation_visualizer <- function(id, cpm_values, clinical){
                 correlation_table <- left_join(cpm_long, clinical_data, by = c("sample"="Sample.ID"))
 
                 ggplot(subset(correlation_table, SYMBOL == input$gene), aes_string(x = input$category, y = "CPM"))+
-                  geom_point()
+                  geom_point()+
+                  geom_smooth(method = lm, se = F)
 
 
       })
