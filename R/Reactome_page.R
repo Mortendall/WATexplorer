@@ -13,19 +13,17 @@ library(pheatmap)
 
 reactome_page_ui <- function(id, data, edgeR){
   ns <- shiny::NS(id)
-  reactomedata <- data[[1]]
-  reactomedata <- reactomedata %>%
+  displayed_data <- data
+  displayed_data <- displayed_data %>%
     dplyr::filter(FDR < 0.05)
-  name <- names(data[1])
+
  sidebarLayout(
               sidebarPanel(
                 selectInput(ns("term"),
                             label = "Choose a term to analyze",
-                            choices = reactomedata$TERM),
-                actionButton(ns("GO_data"),
-                             label = "Load GO-data"),
-                actionButton(ns("reactome"),
-                                label= "Load reactome data"),
+                            choices = displayed_data$TERM),
+
+
                 plotOutput(outputId = ns("volcano"))),
               mainPanel(
                 plotOutput(outputId = ns("heatmap")),
@@ -38,14 +36,13 @@ reactome_page_ui <- function(id, data, edgeR){
 
 
 
-reactome_page <- function(id, data, participant, cpm_values, edgeR){
+reactome_page <- function(id, data_reactome, participant, cpm_values, edgeR){
   moduleServer(
     id,
     function(input, output, session){
 
-
       output$heatmap <- renderPlot({
-        reactomedata <- data[[1]]
+        reactomedata <- data_reactome
         sample_info <- participant
         cpm_data <- cpm_values
 
@@ -97,10 +94,10 @@ reactome_page <- function(id, data, participant, cpm_values, edgeR){
                  Colv = NA,
                  na.rm = T,
                  cluster_cols = F,
-                 fontsize_row = 6,
-                 fontsize_col = 8,
-                 cellwidth = 8,
-                 cellheight = 6,
+                 fontsize_row = 7,
+                 fontsize_col = 9,
+                 cellwidth = 9,
+                 cellheight = 7,
                  main = input$term,
                  annotation_col = candidate_groups,
                  cex = 0.9
@@ -108,9 +105,9 @@ reactome_page <- function(id, data, participant, cpm_values, edgeR){
       })
 
       output$volcano <- renderPlot({
-        reactomedata <- data[[1]]
+        reactomedata <- data_reactome
         sample_info <- participant
-        edgeRdata <- edgeR[[1]]
+        edgeRdata <- edgeR
         candidate <- reactomedata[reactomedata$TERM %in% input$term,]
 
         gene_list <- candidate$genesInTerm
@@ -137,7 +134,7 @@ reactome_page <- function(id, data, participant, cpm_values, edgeR){
           ggtitle(input$term)
       })
       observeEvent(input$download, {
-        reactomedata <- data[[1]]
+        reactomedata <- data_reactome
         candidate <- reactomedata[reactomedata$TERM %in% input$term,]
         gene_list <- candidate$genesInTerm
         candidates_test <- unlist(strsplit(gene_list, ", "))
@@ -148,4 +145,137 @@ reactome_page <- function(id, data, participant, cpm_values, edgeR){
 
     })
 }
+GO_page_ui <- function(id, data, edgeR){
+  ns <- shiny::NS(id)
+  displayed_data <- data
+  displayed_data <- displayed_data %>%
+    dplyr::filter(FDR < 0.001)
 
+  sidebarLayout(
+    sidebarPanel(
+      selectInput(ns("term"),
+                  label = "Choose a term to analyze",
+                  choices = displayed_data$TERM),
+
+
+      plotOutput(outputId = ns("volcano"))),
+    mainPanel(
+      plotOutput(outputId = ns("heatmap")),
+      actionButton(ns("download"),
+                   label = "Press to download list of genes from this term")
+
+
+    ))
+}
+GO_page <- function(id, data_reactome, participant, cpm_values, edgeR){
+  moduleServer(
+    id,
+    function(input, output, session){
+
+      output$heatmap <- renderPlot({
+        reactomedata <- data_reactome
+        sample_info <- participant
+        cpm_data <- cpm_values
+        edgeR_cutoff <- edgeR
+
+        candidate <- reactomedata[reactomedata$TERM %in% input$term,]
+
+        gene_list <- candidate$genesInTerm
+
+        candidates_test <- unlist(strsplit(gene_list, ", "))
+        candidates_test <- as_tibble(candidates_test)
+
+        #select candidates from extracted
+        candidate_data <- cpm_data %>%
+          filter(SYMBOL %in% candidates_test$value)
+        candidate_data <- candidate_data %>% distinct(SYMBOL, .keep_all = T)
+        cut_off <- edgeR_cutoff %>% dplyr::filter(P.Value < 0.05)
+        candidate_data <- candidate_data %>% dplyr::filter(SYMBOL %in% cut_off$SYMBOL)
+
+        rownames(candidate_data)<-candidate_data$SYMBOL
+        candidate_data <- candidate_data %>%
+          dplyr::select(-c(rn, SYMBOL))
+
+        #select ID and group
+
+
+        roworder_test <- c("CR_B", "CR_A", "PR_B", "PR_A")
+        candidate_groups <- sample_info %>%
+          dplyr::select(Sample.Name, Group, Sample_ID) %>%
+          dplyr::arrange(Group = factor(Group, levels = roworder_test))
+
+        colorder <- candidate_groups$Sample_ID
+
+        candidate_data <- candidate_data %>% relocate(colorder)
+
+
+        colnames(candidate_data)==candidate_groups$Sample_ID
+        candidate_groups <- candidate_groups %>%
+          dplyr::select(-Sample_ID)
+
+        rownames(candidate_groups) <- candidate_groups$Sample.Name
+        colnames(candidate_data)<-candidate_groups$Sample.Name
+        candidate_data <- as.matrix(candidate_data)
+        candidate_groups <- candidate_groups %>%
+          dplyr::select(-Sample.Name)
+
+        pheatmap(candidate_data,
+                 treeheight_col = 0,
+                 treeheight_row = 0,
+                 scale = "row",
+                 legend = T,
+                 na_col = "white",
+                 Colv = NA,
+                 na.rm = T,
+                 cluster_cols = F,
+                 fontsize_row = 10,
+                 fontsize_col = 12,
+                 cellwidth = 12,
+                 cellheight = 10,
+                 main = input$term,
+                 annotation_col = candidate_groups,
+                 cex = 0.9
+        )
+      })
+
+      output$volcano <- renderPlot({
+        reactomedata <- data_reactome
+        sample_info <- participant
+        edgeRdata <- edgeR
+        candidate <- reactomedata[reactomedata$TERM %in% input$term,]
+
+        gene_list <- candidate$genesInTerm
+
+        candidates_test <- unlist(strsplit(gene_list, ", "))
+        candidates_test <- as_tibble(candidates_test)
+
+        edgeRdata <- edgeRdata %>%
+          dplyr::filter(SYMBOL %in% candidates_test$value & P.Value<0.05)
+
+        ggplot(edgeRdata, aes(x = logFC, y = -log10(P.Value))) +
+          geom_point() +
+          geom_text(
+            label = edgeRdata$SYMBOL,
+            nudge_x = 0.25,
+            nudge_y = 0.25,
+            check_overlap = T
+          ) +
+          geom_hline(yintercept =  1.30, linetype = "dashed") +
+          geom_vline(xintercept =  1, linetype = "dashed") +
+          geom_vline(xintercept =  -1, linetype = "dashed") +
+          xlim(-3.5, 3.5) +
+          ylim(0, 5.5)+
+          ggtitle(input$term)
+      })
+      observeEvent(input$download, {
+        reactomedata <- data_reactome
+        candidate <- reactomedata[reactomedata$TERM %in% input$term,]
+        gene_list <- candidate$genesInTerm
+        candidates_test <- unlist(strsplit(gene_list, ", "))
+        names(candidates_test)<-input$term
+        write.table(candidates_test, "candidate_list.txt", sep = ",", row.names = F)
+
+      })
+
+    })
+}
