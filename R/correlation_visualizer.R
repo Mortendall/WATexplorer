@@ -1,6 +1,14 @@
 
 
 
+#' correlation_visualizer
+#'
+#' @param id id for app
+#' @param clinical clinical data
+#'
+#' @return
+#' @export
+
    correlation_visualizer_ui <- function(id, clinical){
     ns <- shiny::NS(id)
     clincal_data <- clinical
@@ -21,6 +29,16 @@
   }
 
 
+
+#' Title
+#'
+#' @param id session ID
+#' @param cpm_values cpm_table with symbols
+#' @param clinical matrix with clinical data
+#'
+#' @return
+#' @export
+#'
 
 correlation_visualizer <- function(id, cpm_values, clinical){
   moduleServer(

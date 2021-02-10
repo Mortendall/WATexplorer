@@ -8,6 +8,10 @@ reactome_page_ui(id, data, edgeR)
 }
 \arguments{
 \item{id}{session id}
+
+\item{data}{reactome data generated with CAMERA}
+
+\item{edgeR}{edgeR DEG data}
 }
 \value{
 
