@@ -299,12 +299,15 @@ GO_page <- function(id, data_reactome, participant, cpm_values, edgeR){
           ggtitle(input$term)
       })
       observeEvent(input$download, {
+        edgeRdata <- edgeR
         reactomedata <- data_reactome
         candidate <- reactomedata[reactomedata$TERM %in% input$term,]
         gene_list <- candidate$genesInTerm
         candidates_test <- unlist(strsplit(gene_list, ", "))
-        names(candidates_test)<-input$term
-        write.table(candidates_test, "candidate_list.txt", sep = ",", row.names = F)
+        candidates_test <- as_tibble(candidates_test)
+        edgeRdata <- edgeRdata %>%
+          dplyr::filter(SYMBOL %in% candidates_test$value & P.Value<0.05)
+        write.table(edgeRdata$SYMBOL, "candidate_list.txt", sep = ",", row.names = F)
 
       })
 
